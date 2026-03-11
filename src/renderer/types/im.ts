@@ -5,16 +5,15 @@
 
 // ==================== DingTalk Types ====================
 
-export interface DingTalkConfig {
+export interface DingTalkOpenClawConfig {
   enabled: boolean;
   clientId: string;
   clientSecret: string;
-  robotCode?: string;
-  corpId?: string;
-  agentId?: string;
-  messageType: 'markdown' | 'card';
-  cardTemplateId?: string;
-  debug?: boolean;
+  dmPolicy: 'open' | 'pairing' | 'allowlist';
+  allowFrom: string[];
+  groupPolicy: 'open' | 'allowlist';
+  sessionTimeout: number;
+  debug: boolean;
 }
 
 export interface DingTalkGatewayStatus {
@@ -215,7 +214,7 @@ export interface WecomGatewayStatus {
 export type IMPlatform = 'dingtalk' | 'feishu' | 'qq' | 'telegram' | 'discord' | 'nim' | 'xiaomifeng' | 'wecom';
 
 export interface IMGatewayConfig {
-  dingtalk: DingTalkConfig;
+  dingtalk: DingTalkOpenClawConfig;
   feishu: FeishuOpenClawConfig;
   telegram: TelegramOpenClawConfig;
   qq: QQConfig;
@@ -350,12 +349,15 @@ export interface PairingListResult {
 
 // ==================== Default Configurations ====================
 
-export const DEFAULT_DINGTALK_CONFIG: DingTalkConfig = {
+export const DEFAULT_DINGTALK_OPENCLAW_CONFIG: DingTalkOpenClawConfig = {
   enabled: false,
   clientId: '',
   clientSecret: '',
-  messageType: 'markdown',
-  debug: true,
+  dmPolicy: 'open',
+  allowFrom: [],
+  groupPolicy: 'open',
+  sessionTimeout: 1800000,
+  debug: false,
 };
 
 export const DEFAULT_FEISHU_OPENCLAW_CONFIG: FeishuOpenClawConfig = {
@@ -444,7 +446,7 @@ export const DEFAULT_IM_SETTINGS: IMSettings = {
 };
 
 export const DEFAULT_IM_CONFIG: IMGatewayConfig = {
-  dingtalk: DEFAULT_DINGTALK_CONFIG,
+  dingtalk: DEFAULT_DINGTALK_OPENCLAW_CONFIG,
   feishu: DEFAULT_FEISHU_OPENCLAW_CONFIG,
   telegram: DEFAULT_TELEGRAM_OPENCLAW_CONFIG,
   qq: DEFAULT_QQ_CONFIG,

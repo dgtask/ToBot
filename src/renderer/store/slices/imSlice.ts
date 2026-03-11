@@ -7,7 +7,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type {
   IMGatewayConfig,
   IMGatewayStatus,
-  DingTalkConfig,
+  DingTalkOpenClawConfig,
   FeishuOpenClawConfig,
   TelegramOpenClawConfig,
   QQConfig,
@@ -43,7 +43,7 @@ const imSlice = createSlice({
     setConfig: (state, action: PayloadAction<IMGatewayConfig>) => {
       state.config = action.payload;
     },
-    setDingTalkConfig: (state, action: PayloadAction<Partial<DingTalkConfig>>) => {
+    setDingTalkConfig: (state, action: PayloadAction<Partial<DingTalkOpenClawConfig>>) => {
       state.config.dingtalk = { ...state.config.dingtalk, ...action.payload };
     },
     setFeishuConfig: (state, action: PayloadAction<Partial<FeishuOpenClawConfig>>) => {

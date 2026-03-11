@@ -680,6 +680,10 @@ export class OpenClawEngineManager extends EventEmitter {
     return token;
   }
 
+  getGatewayToken(): string | null {
+    return this.readGatewayToken();
+  }
+
   private readGatewayToken(): string | null {
     try {
       const token = fs.readFileSync(this.gatewayTokenPath, 'utf8').trim();

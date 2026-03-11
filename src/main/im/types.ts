@@ -5,16 +5,15 @@
 
 // ==================== DingTalk Types ====================
 
-export interface DingTalkConfig {
+export interface DingTalkOpenClawConfig {
   enabled: boolean;
   clientId: string;
   clientSecret: string;
-  robotCode?: string;
-  corpId?: string;
-  agentId?: string;
-  messageType: 'markdown' | 'card';
-  cardTemplateId?: string;
-  debug?: boolean;
+  dmPolicy: 'open' | 'pairing' | 'allowlist';
+  allowFrom: string[];
+  groupPolicy: 'open' | 'allowlist';
+  sessionTimeout: number;
+  debug: boolean;
 }
 
 export interface DingTalkGatewayStatus {
@@ -23,28 +22,6 @@ export interface DingTalkGatewayStatus {
   lastError: string | null;
   lastInboundAt: number | null;
   lastOutboundAt: number | null;
-}
-
-export interface DingTalkInboundMessage {
-  msgId: string;
-  msgtype: 'text' | 'richText' | 'audio' | string;
-  createAt: number;
-  text?: { content: string };
-  content?: {
-    downloadCode?: string;
-    fileName?: string;
-    recognition?: string;
-    richText?: Array<{ text?: string }>;
-    duration?: string;
-    videoType?: string;
-  };
-  conversationType: '1' | '2'; // 1: DM, 2: Group
-  conversationId: string;
-  senderId: string;
-  senderStaffId?: string;
-  senderNick?: string;
-  chatbotUserId: string;
-  sessionWebhook: string;
 }
 
 // ==================== Feishu Types ====================
@@ -236,7 +213,7 @@ export interface WecomGatewayStatus {
 export type IMPlatform = 'dingtalk' | 'feishu' | 'qq' | 'telegram' | 'discord' | 'nim' | 'xiaomifeng' | 'wecom';
 
 export interface IMGatewayConfig {
-  dingtalk: DingTalkConfig;
+  dingtalk: DingTalkOpenClawConfig;
   feishu: FeishuOpenClawConfig;
   telegram: TelegramOpenClawConfig;
   qq: QQConfig;
@@ -377,12 +354,15 @@ export interface IMConnectivityTestResponse {
 
 // ==================== Default Configurations ====================
 
-export const DEFAULT_DINGTALK_CONFIG: DingTalkConfig = {
+export const DEFAULT_DINGTALK_OPENCLAW_CONFIG: DingTalkOpenClawConfig = {
   enabled: false,
   clientId: '',
   clientSecret: '',
-  messageType: 'markdown',
-  debug: true,
+  dmPolicy: 'open',
+  allowFrom: [],
+  groupPolicy: 'open',
+  sessionTimeout: 1800000,
+  debug: false,
 };
 
 export const DEFAULT_FEISHU_OPENCLAW_CONFIG: FeishuOpenClawConfig = {
@@ -475,7 +455,7 @@ export const DEFAULT_IM_SETTINGS: IMSettings = {
 };
 
 export const DEFAULT_IM_CONFIG: IMGatewayConfig = {
-  dingtalk: DEFAULT_DINGTALK_CONFIG,
+  dingtalk: DEFAULT_DINGTALK_OPENCLAW_CONFIG,
   feishu: DEFAULT_FEISHU_OPENCLAW_CONFIG,
   telegram: DEFAULT_TELEGRAM_OPENCLAW_CONFIG,
   qq: DEFAULT_QQ_CONFIG,
@@ -566,34 +546,7 @@ export const DEFAULT_IM_STATUS: IMGatewayStatus = {
   wecom: DEFAULT_WECOM_STATUS,
 };
 
-// ==================== DingTalk Media Types ====================
-
-// Session Webhook 使用 msgKey + msgParam 格式
-export interface DingTalkImageMessage {
-  msgKey: 'sampleImageMsg';
-  sampleImageMsg: { photoURL: string };
-}
-
-export interface DingTalkVoiceMessage {
-  msgKey: 'sampleAudio';
-  sampleAudio: { mediaId: string; duration?: string };
-}
-
-export interface DingTalkVideoMessage {
-  msgKey: 'sampleVideo';
-  sampleVideo: { mediaId: string; duration?: string; videoType?: string };
-}
-
-export interface DingTalkFileMessage {
-  msgKey: 'sampleFile';
-  sampleFile: { mediaId: string; fileName?: string };
-}
-
-export type DingTalkMediaMessage =
-  | DingTalkImageMessage
-  | DingTalkVoiceMessage
-  | DingTalkVideoMessage
-  | DingTalkFileMessage;
+// ==================== Media Marker Types ====================
 
 export interface MediaMarker {
   type: 'image' | 'video' | 'audio' | 'file';

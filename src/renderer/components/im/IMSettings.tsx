@@ -11,7 +11,7 @@ import { RootState } from '../../store';
 import { imService } from '../../services/im';
 import { setDingTalkConfig, setFeishuConfig, setTelegramOpenClawConfig, setQQConfig, setDiscordConfig, setNimConfig, setXiaomifengConfig, setWecomConfig, clearError } from '../../store/slices/imSlice';
 import { i18nService } from '../../services/i18n';
-import type { IMPlatform, IMConnectivityCheck, IMConnectivityTestResult, IMGatewayConfig, TelegramOpenClawConfig, DiscordOpenClawConfig, FeishuOpenClawConfig } from '../../types/im';
+import type { IMPlatform, IMConnectivityCheck, IMConnectivityTestResult, IMGatewayConfig, TelegramOpenClawConfig, DiscordOpenClawConfig, FeishuOpenClawConfig, DingTalkOpenClawConfig } from '../../types/im';
 import { getVisibleIMPlatforms } from '../../utils/regionFilter';
 
 // Platform metadata
@@ -104,10 +104,19 @@ const IMSettings: React.FC = () => {
     };
   }, []);
 
-  // Handle DingTalk config change
-  const handleDingTalkChange = (field: 'clientId' | 'clientSecret', value: string) => {
-    dispatch(setDingTalkConfig({ [field]: value }));
+  // Handle DingTalk OpenClaw config change
+  const dtOpenClawConfig = config.dingtalk;
+  const handleDingTalkOpenClawChange = (update: Partial<DingTalkOpenClawConfig>) => {
+    dispatch(setDingTalkConfig(update));
   };
+  const handleSaveDingTalkOpenClawConfig = async (override?: Partial<DingTalkOpenClawConfig>) => {
+    if (!configLoaded) return;
+    const configToSave = override
+      ? { ...dtOpenClawConfig, ...override }
+      : dtOpenClawConfig;
+    await imService.updateConfig({ dingtalk: configToSave });
+  };
+  const [dingtalkAllowedUserIdInput, setDingtalkAllowedUserIdInput] = useState('');
 
   // Handle Feishu OpenClaw config change
   const fsOpenClawConfig = config.feishu;
@@ -708,17 +717,17 @@ const IMSettings: React.FC = () => {
               <div className="relative">
                 <input
                   type="text"
-                  value={config.dingtalk.clientId}
-                  onChange={(e) => handleDingTalkChange('clientId', e.target.value)}
-                  onBlur={handleSaveConfig}
+                  value={dtOpenClawConfig.clientId}
+                  onChange={(e) => handleDingTalkOpenClawChange({ clientId: e.target.value })}
+                  onBlur={() => handleSaveDingTalkOpenClawConfig()}
                   className="block w-full rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 pr-8 text-sm transition-colors"
                   placeholder="dingxxxxxx"
                 />
-                {config.dingtalk.clientId && (
+                {dtOpenClawConfig.clientId && (
                   <div className="absolute right-2 inset-y-0 flex items-center">
                     <button
                       type="button"
-                      onClick={() => { handleDingTalkChange('clientId', ''); void imService.updateConfig({ dingtalk: { ...config.dingtalk, clientId: '' } }); }}
+                      onClick={() => { handleDingTalkOpenClawChange({ clientId: '' }); void imService.updateConfig({ dingtalk: { ...dtOpenClawConfig, clientId: '' } }); }}
                       className="p-0.5 rounded text-claude-textSecondary dark:text-claude-darkTextSecondary hover:text-claude-accent transition-colors"
                       title={i18nService.t('clear') || 'Clear'}
                     >
@@ -737,17 +746,17 @@ const IMSettings: React.FC = () => {
               <div className="relative">
                 <input
                   type={showSecrets['dingtalk.clientSecret'] ? 'text' : 'password'}
-                  value={config.dingtalk.clientSecret}
-                  onChange={(e) => handleDingTalkChange('clientSecret', e.target.value)}
-                  onBlur={handleSaveConfig}
+                  value={dtOpenClawConfig.clientSecret}
+                  onChange={(e) => handleDingTalkOpenClawChange({ clientSecret: e.target.value })}
+                  onBlur={() => handleSaveDingTalkOpenClawConfig()}
                   className="block w-full rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 pr-16 text-sm transition-colors"
                   placeholder="••••••••••••"
                 />
                 <div className="absolute right-2 inset-y-0 flex items-center gap-1">
-                  {config.dingtalk.clientSecret && (
+                  {dtOpenClawConfig.clientSecret && (
                     <button
                       type="button"
-                      onClick={() => { handleDingTalkChange('clientSecret', ''); void imService.updateConfig({ dingtalk: { ...config.dingtalk, clientSecret: '' } }); }}
+                      onClick={() => { handleDingTalkOpenClawChange({ clientSecret: '' }); void imService.updateConfig({ dingtalk: { ...dtOpenClawConfig, clientSecret: '' } }); }}
                       className="p-0.5 rounded text-claude-textSecondary dark:text-claude-darkTextSecondary hover:text-claude-accent transition-colors"
                       title={i18nService.t('clear') || 'Clear'}
                     >
@@ -765,6 +774,158 @@ const IMSettings: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Advanced Settings (collapsible) */}
+            <details className="group">
+              <summary className="cursor-pointer text-xs font-medium dark:text-claude-darkTextSecondary text-claude-textSecondary hover:text-claude-accent transition-colors">
+                高级设置
+              </summary>
+              <div className="mt-2 space-y-3 pl-2 border-l-2 border-claude-border/30 dark:border-claude-darkBorder/30">
+                {/* DM Policy */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium dark:text-claude-darkTextSecondary text-claude-textSecondary">
+                    DM Policy
+                  </label>
+                  <select
+                    value={dtOpenClawConfig.dmPolicy}
+                    onChange={(e) => {
+                      const update = { dmPolicy: e.target.value as DingTalkOpenClawConfig['dmPolicy'] };
+                      handleDingTalkOpenClawChange(update);
+                      void handleSaveDingTalkOpenClawConfig(update);
+                    }}
+                    className="block w-full rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 text-sm transition-colors"
+                  >
+                    <option value="open">Open（开放）</option>
+                    <option value="pairing">Pairing（配对码验证）</option>
+                    <option value="allowlist">Allowlist（白名单）</option>
+                  </select>
+                </div>
+
+                {/* Pairing Requests (shown when dmPolicy is 'pairing') */}
+                {dtOpenClawConfig.dmPolicy === 'pairing' && renderPairingSection('dingtalk')}
+
+                {/* Allow From (User IDs) */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium dark:text-claude-darkTextSecondary text-claude-textSecondary">
+                    Allow From (User IDs)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dingtalkAllowedUserIdInput}
+                      onChange={(e) => setDingtalkAllowedUserIdInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const id = dingtalkAllowedUserIdInput.trim();
+                          if (id && !dtOpenClawConfig.allowFrom.includes(id)) {
+                            const newIds = [...dtOpenClawConfig.allowFrom, id];
+                            handleDingTalkOpenClawChange({ allowFrom: newIds });
+                            setDingtalkAllowedUserIdInput('');
+                            void imService.updateConfig({ dingtalk: { ...dtOpenClawConfig, allowFrom: newIds } });
+                          }
+                        }
+                      }}
+                      className="block flex-1 rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 text-sm transition-colors"
+                      placeholder="输入钉钉 User ID"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = dingtalkAllowedUserIdInput.trim();
+                        if (id && !dtOpenClawConfig.allowFrom.includes(id)) {
+                          const newIds = [...dtOpenClawConfig.allowFrom, id];
+                          handleDingTalkOpenClawChange({ allowFrom: newIds });
+                          setDingtalkAllowedUserIdInput('');
+                          void imService.updateConfig({ dingtalk: { ...dtOpenClawConfig, allowFrom: newIds } });
+                        }
+                      }}
+                      className="px-3 py-2 rounded-lg text-xs font-medium bg-claude-accent/10 text-claude-accent hover:bg-claude-accent/20 transition-colors"
+                    >
+                      {i18nService.t('add') || '添加'}
+                    </button>
+                  </div>
+                  {dtOpenClawConfig.allowFrom.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {dtOpenClawConfig.allowFrom.map((id) => (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border dark:text-claude-darkText text-claude-text"
+                        >
+                          {id}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newIds = dtOpenClawConfig.allowFrom.filter((x) => x !== id);
+                              handleDingTalkOpenClawChange({ allowFrom: newIds });
+                              void imService.updateConfig({ dingtalk: { ...dtOpenClawConfig, allowFrom: newIds } });
+                            }}
+                            className="p-0.5 rounded text-claude-textSecondary dark:text-claude-darkTextSecondary hover:text-red-500 transition-colors"
+                          >
+                            <XMarkIcon className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Group Policy */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium dark:text-claude-darkTextSecondary text-claude-textSecondary">
+                    Group Policy
+                  </label>
+                  <select
+                    value={dtOpenClawConfig.groupPolicy}
+                    onChange={(e) => {
+                      const update = { groupPolicy: e.target.value as DingTalkOpenClawConfig['groupPolicy'] };
+                      handleDingTalkOpenClawChange(update);
+                      void handleSaveDingTalkOpenClawConfig(update);
+                    }}
+                    className="block w-full rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 text-sm transition-colors"
+                  >
+                    <option value="open">Open（开放）</option>
+                    <option value="allowlist">Allowlist（白名单）</option>
+                  </select>
+                </div>
+
+                {/* Session Timeout */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium dark:text-claude-darkTextSecondary text-claude-textSecondary">
+                    会话超时（分钟）
+                  </label>
+                  <input
+                    type="number"
+                    value={Math.round(dtOpenClawConfig.sessionTimeout / 60000)}
+                    onChange={(e) => {
+                      const minutes = parseInt(e.target.value, 10);
+                      if (!isNaN(minutes) && minutes > 0) {
+                        handleDingTalkOpenClawChange({ sessionTimeout: minutes * 60000 });
+                      }
+                    }}
+                    onBlur={() => handleSaveDingTalkOpenClawConfig()}
+                    className="block w-full rounded-lg dark:bg-claude-darkSurface/80 bg-claude-surface/80 dark:border-claude-darkBorder/60 border-claude-border/60 border focus:border-claude-accent focus:ring-1 focus:ring-claude-accent/30 dark:text-claude-darkText text-claude-text px-3 py-2 text-sm transition-colors"
+                    min="1"
+                    placeholder="30"
+                  />
+                </div>
+
+                {/* Debug */}
+                <label className="flex items-center gap-2 text-xs dark:text-claude-darkTextSecondary text-claude-textSecondary">
+                  <input
+                    type="checkbox"
+                    checked={dtOpenClawConfig.debug}
+                    onChange={(e) => {
+                      const update = { debug: e.target.checked };
+                      handleDingTalkOpenClawChange(update);
+                      void handleSaveDingTalkOpenClawConfig(update);
+                    }}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  Debug 模式
+                </label>
+              </div>
+            </details>
 
             <div className="pt-1">
               {renderConnectivityTestButton('dingtalk')}

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import type { CoworkConfig, CoworkExecutionMode } from '../coworkStore';
 import type { TelegramOpenClawConfig, DiscordOpenClawConfig } from '../im/types';
-import type { DingTalkConfig, FeishuOpenClawConfig, QQConfig, WecomConfig } from '../im/types';
+import type { DingTalkOpenClawConfig, FeishuOpenClawConfig, QQConfig, WecomConfig } from '../im/types';
 import { resolveRawApiConfig } from './claudeSettings';
 import type { OpenClawEngineManager } from './openclawEngineManager';
 
@@ -54,7 +54,7 @@ type OpenClawConfigSyncDeps = {
   getCoworkConfig: () => CoworkConfig;
   getTelegramOpenClawConfig?: () => TelegramOpenClawConfig | null;
   getDiscordOpenClawConfig?: () => DiscordOpenClawConfig | null;
-  getDingTalkConfig: () => DingTalkConfig | null;
+  getDingTalkConfig: () => DingTalkOpenClawConfig | null;
   getFeishuConfig: () => FeishuOpenClawConfig | null;
   getQQConfig: () => QQConfig | null;
   getWecomConfig: () => WecomConfig | null;
@@ -65,7 +65,7 @@ export class OpenClawConfigSync {
   private readonly getCoworkConfig: () => CoworkConfig;
   private readonly getTelegramOpenClawConfig?: () => TelegramOpenClawConfig | null;
   private readonly getDiscordOpenClawConfig?: () => DiscordOpenClawConfig | null;
-  private readonly getDingTalkConfig: () => DingTalkConfig | null;
+  private readonly getDingTalkConfig: () => DingTalkOpenClawConfig | null;
   private readonly getFeishuConfig: () => FeishuOpenClawConfig | null;
   private readonly getQQConfig: () => QQConfig | null;
   private readonly getWecomConfig: () => WecomConfig | null;
@@ -115,10 +115,8 @@ export class OpenClawConfigSync {
     const preinstalledPluginIds = readPreinstalledPluginIds();
 
     const dingTalkConfig = this.getDingTalkConfig();
-    const hasDingTalk = dingTalkConfig?.enabled && dingTalkConfig.clientId;
-    const gatewayToken = hasDingTalk
-      ? this.engineManager.getGatewayConnectionInfo().token || ''
-      : '';
+    // DingTalk runs through OpenClaw plugin but still needs the gateway HTTP endpoint (chatCompletions)
+    const hasDingTalkOpenClaw = !!(dingTalkConfig?.enabled && dingTalkConfig.clientId);
 
     const feishuConfig = this.getFeishuConfig();
     // Feishu now runs fully through OpenClaw plugin, handled separately below like Telegram
@@ -130,7 +128,7 @@ export class OpenClawConfigSync {
     const wecomConfig = this.getWecomConfig();
     const hasWecom = wecomConfig?.enabled && wecomConfig.botId;
 
-    const hasAnyChannel = hasDingTalk || hasQQ || hasWecom;
+    const hasAnyChannel = hasDingTalkOpenClaw || hasQQ || hasWecom;
 
     const managedConfig: Record<string, unknown> = {
       gateway: {
@@ -191,31 +189,7 @@ export class OpenClawConfigSync {
             },
           }
         : {}),
-      ...(hasDingTalk ? {
-        channels: {
-          'dingtalk-connector': {
-            enabled: true,
-            clientId: dingTalkConfig.clientId,
-            clientSecret: dingTalkConfig.clientSecret,
-            ...(gatewayToken ? { gatewayToken } : {}),
-          },
-          ...(hasQQ ? {
-            qqbot: {
-              enabled: true,
-              appId: qqConfig.appId,
-              clientSecret: qqConfig.appSecret,
-            },
-          } : {}),
-          ...(hasWecom ? {
-            wecom: {
-              enabled: true,
-              botId: wecomConfig.botId,
-              secret: wecomConfig.secret,
-              dmPolicy: 'open',
-            },
-          } : {}),
-        },
-      } : hasQQ ? {
+      ...(hasQQ ? {
         channels: {
           qqbot: {
             enabled: true,
@@ -361,6 +335,28 @@ export class OpenClawConfigSync {
       managedConfig.channels = { ...(managedConfig.channels as Record<string, unknown> || {}), feishu: feishuChannel };
     } else if (feishuConfig) {
       managedConfig.channels = { ...(managedConfig.channels as Record<string, unknown> || {}), feishu: { enabled: false } };
+    }
+
+    // Sync DingTalk OpenClaw channel config (via dingtalk-connector plugin)
+    if (dingTalkConfig?.enabled && dingTalkConfig.clientId) {
+      const gatewayToken = this.engineManager.getGatewayToken();
+      const dingtalkChannel: Record<string, unknown> = {
+        enabled: true,
+        clientId: dingTalkConfig.clientId,
+        clientSecret: dingTalkConfig.clientSecret,
+        dmPolicy: dingTalkConfig.dmPolicy || 'open',
+        allowFrom: (() => {
+          const ids = dingTalkConfig.allowFrom?.length ? [...dingTalkConfig.allowFrom] : [];
+          if (dingTalkConfig.dmPolicy === 'open' && !ids.includes('*')) ids.push('*');
+          return ids;
+        })(),
+        groupPolicy: dingTalkConfig.groupPolicy || 'open',
+        sessionTimeout: dingTalkConfig.sessionTimeout ?? 1800000,
+        ...(gatewayToken ? { gatewayToken } : {}),
+      };
+      managedConfig.channels = { ...(managedConfig.channels as Record<string, unknown> || {}), 'dingtalk-connector': dingtalkChannel };
+    } else if (dingTalkConfig) {
+      managedConfig.channels = { ...(managedConfig.channels as Record<string, unknown> || {}), 'dingtalk-connector': { enabled: false } };
     }
 
     const nextContent = `${JSON.stringify(managedConfig, null, 2)}\n`;

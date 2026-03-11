@@ -2322,7 +2322,13 @@ if (!gotTheLock) {
 
       // Re-sync OpenClaw config so dingtalk-connector picks up new credentials
       if (config.dingtalk) {
-        void syncOpenClawConfig({ reason: 'im-dingtalk-config-change', restartGatewayIfRunning: false });
+        const engineManager = getOpenClawEngineManager();
+        if (engineManager.getStatus().phase === 'running') {
+          await syncOpenClawConfig({
+            reason: 'dingtalk-openclaw-config-change',
+            restartGatewayIfRunning: true,
+          });
+        }
       }
       // Re-sync OpenClaw config so feishu-openclaw-plugin picks up new credentials
       if (config.feishu) {
