@@ -418,7 +418,7 @@ type OpenClawConfigSyncDeps = {
   getQQConfig: () => QQOpenClawConfig | null;
   getWecomConfig: () => WecomOpenClawConfig | null;
   getMcpBridgeConfig?: () => McpBridgeConfig | null;
-  getSkillsPrompt?: () => string | null;
+  getSkillsList?: () => Array<{ id: string; enabled: boolean }>;
 };
 
 export class OpenClawConfigSync {
@@ -431,7 +431,7 @@ export class OpenClawConfigSync {
   private readonly getQQConfig: () => QQOpenClawConfig | null;
   private readonly getWecomConfig: () => WecomOpenClawConfig | null;
   private readonly getMcpBridgeConfig?: () => McpBridgeConfig | null;
-  private readonly getSkillsPrompt?: () => string | null;
+  private readonly getSkillsList?: () => Array<{ id: string; enabled: boolean }>;
 
   constructor(deps: OpenClawConfigSyncDeps) {
     this.engineManager = deps.engineManager;
@@ -443,7 +443,7 @@ export class OpenClawConfigSync {
     this.getQQConfig = deps.getQQConfig;
     this.getWecomConfig = deps.getWecomConfig;
     this.getMcpBridgeConfig = deps.getMcpBridgeConfig;
-    this.getSkillsPrompt = deps.getSkillsPrompt;
+    this.getSkillsList = deps.getSkillsList;
   }
 
   sync(reason: string): OpenClawConfigSyncResult {
@@ -552,7 +552,14 @@ export class OpenClawConfigSync {
         enabled: true,
       },
       skills: {
-        entries: MANAGED_SKILL_ENTRY_OVERRIDES,
+        entries: {
+          ...MANAGED_SKILL_ENTRY_OVERRIDES,
+          ...this.buildSkillEntries(),
+        },
+        load: {
+          extraDirs: this.resolveSkillsExtraDirs(),
+          watch: true,
+        },
       },
       cron: {
         enabled: true,
@@ -930,6 +937,40 @@ export class OpenClawConfigSync {
   }
 
   /**
+   * Resolve the LobsterAI SKILLs installation directory for OpenClaw's
+   * `skills.load.extraDirs` configuration.
+   *
+   * Cross-platform paths (via Electron app.getPath('userData')):
+   *   macOS:   ~/Library/Application Support/LobsterAI/SKILLs
+   *   Windows: %APPDATA%/LobsterAI/SKILLs
+   *   Linux:   ~/.config/LobsterAI/SKILLs
+   */
+  private resolveSkillsExtraDirs(): string[] {
+    const userDataSkillsDir = path.join(app.getPath('userData'), 'SKILLs');
+    try {
+      if (fs.statSync(userDataSkillsDir).isDirectory()) {
+        return [userDataSkillsDir];
+      }
+    } catch {
+      // Directory doesn't exist yet (e.g., fresh install before any skills sync).
+    }
+    return [];
+  }
+
+  /**
+   * Build per-skill `enabled` overrides from the LobsterAI SkillManager state,
+   * so that skills disabled in the LobsterAI UI are also hidden from OpenClaw.
+   */
+  private buildSkillEntries(): Record<string, { enabled: boolean }> {
+    const skills = this.getSkillsList?.() ?? [];
+    const entries: Record<string, { enabled: boolean }> = {};
+    for (const skill of skills) {
+      entries[skill.id] = { enabled: skill.enabled };
+    }
+    return entries;
+  }
+
+  /**
    * Sync AGENTS.md to the OpenClaw workspace directory.
    * Embeds the skills routing prompt and system prompt so that OpenClaw's
    * native channel connectors (DingTalk, Feishu, etc.) can discover and
@@ -951,11 +992,8 @@ export class OpenClawConfigSync {
         sections.push(`## System Prompt\n\n${systemPrompt}`);
       }
 
-      // Add skills routing prompt — strip MARKER for safety
-      const skillsPrompt = this.getSkillsPrompt?.()?.replaceAll(MARKER, '') ?? null;
-      if (skillsPrompt) {
-        sections.push(skillsPrompt);
-      }
+      // Skills are now loaded by OpenClaw natively via skills.load.extraDirs
+      // in openclaw.json, so we no longer embed the skills routing prompt here.
 
       sections.push(MANAGED_WEB_SEARCH_POLICY_PROMPT);
 
